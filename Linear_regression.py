@@ -1,5 +1,6 @@
 # import all necessary libraries
 import numpy as np  # For matrices and MATLAB like functions
+import random
 from sklearn.model_selection import (
     train_test_split,
 )  # To split data into train and test set
@@ -27,6 +28,7 @@ def normalize(X, Me, St):
     # Write your function here
     return (X - Me) / St
 
+# this function appends a column of ones to X (bias column)
 def add_bias_column(X):
     bias = np.ones((X.shape[0],1))
     X = np.concatenate((X, bias), axis=1)
@@ -141,14 +143,10 @@ def test_function(train_model, test_X):
 # Write your code here
 
 
-def train(model, trainX, trainY, valX, valY, n_epochs, lr):
+def train(model, trainX, trainY, valX, valY, n_epochs, lr, batch_size):
     # Write your training loop here
     # return model, epoch_loss, val_loss
-    k,l=trainX.shape
     print(model)
-    lr = 0.01
-    n_epochs = 100
-    n_examples = trainX.shape[0]
     epoch_loss = []
     val_loss= []
     print("\n\nTraining...")
@@ -156,12 +154,26 @@ def train(model, trainX, trainY, valX, valY, n_epochs, lr):
     val_loss = []
     for epoch in range(n_epochs):
         loss=0
+
         # Your implementation
-        y_hat = model.feed_forward(trainX)
-        loss = model.l2_loss(trainY, y_hat)
-        epoch_loss.append(loss)
-        grad = model.compute_gradient(y_hat , trainX , trainY)
-        model.optimization(lr, grad)
+        # create list of random indices that will create our mini-batches
+        idx = [i for i in range(len(trainX))]
+        random.shuffle(idx)
+        iter_data_loader = int(len(trainX)/batch_size)
+
+        step = 0
+        for i in range(iter_data_loader): # loop over all the batches in one epoch
+            try:
+                slice = idx[step:batch_size+step]
+                step = step + batch_size
+            except IndexError:  #all indices in one epoch have been traversed
+                continue
+
+            y_hat = model.feed_forward(trainX[slice])
+            loss = model.l2_loss(trainY[slice], y_hat)
+            epoch_loss.append(loss)
+            grad = model.compute_gradient(y_hat , trainX[slice] , trainY[slice])
+            model.optimization(lr, grad)
 
         val_preds = model.feed_forward(valX)
         loss = model.l2_loss(valY, val_preds)
@@ -195,10 +207,11 @@ def main():
     net = linear_regression_network(n_features=8)
 
     # ## Train Network using stochastic gradient descent
-    lr = 0.1
-    n_epochs = 150
+    lr = 0.01
+    n_epochs = 200
+    batch_size = 10000
     model, epoch_loss, val_loss = train(
-        net, train_X, train_Y, val_X, val_Y, n_epochs, lr
+        net, train_X, train_Y, val_X, val_Y, n_epochs, lr, batch_size
     )
     plot_losses(epoch_loss,"train_loss")
     plot_losses(val_loss,"val_loss")
